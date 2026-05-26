@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sudoku Chaotic Encryption — Step-by-Step Simulation</title>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --bg-card: #131829;
+    --bg-elevated: #1a2038;
+    --border: #2a3050;
+    --border-bright: #3d4470;
+    --text: #e8eaf2;
+    --text-dim: #8b92a8;
+    --text-faint: #5a6178;
+    --accent: #6366f1;
+    --accent-glow: #818cf8;
+    --warm: #f59e0b;
+    --warm-glow: #fbbf24;
+    --success: #10b981;
+    --danger: #ef4444;
+    --info: #3b82f6;
+    --mono: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+    background-image:
+      radial-gradient(at 20% 0%, rgba(99,102,241,0.15) 0px, transparent 50%),
+      radial-gradient(at 80% 100%, rgba(245,158,11,0.08) 0px, transparent 50%);
+    background-attachment: fixed;
+  }
+
+  .container { max-width: 1280px; margin: 0 auto; padding: 32px 24px; }
+
+  header { margin-bottom: 24px; }
+  header h1 {
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #fff 0%, #a5b4fc 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    margin-bottom: 6px;
+  }
+  header p {
+    color: var(--text-dim);
+    font-size: 15px;
+  }
+
+  /* Sticky control bar */
+  .controls {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 20px;
+    background: rgba(19, 24, 41, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .progress-wrap { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 200px; }
+  .progress-track {
+    flex: 1;
+    height: 4px;
+    background: var(--bg-elevated);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-glow));
+    width: 0%;
+    transition: width 0.4s;
+    border-radius: 2px;
+  }
+  .progress-text {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    min-width: 40px;
+    text-align: right;
+  }
+  .step-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--accent-glow);
+    font-family: var(--mono);
+    min-width: 240px;
+  }
+
+  .btn {
+    border: none;
+    padding: 9px 18px;
+    border-radius: 9px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+    box-shadow: 0 4px 16px rgba(99,102,241,0.4);
+  }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-glow); transform: translateY(-1px); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover:not(:disabled) { background: var(--bg-elevated); color: var(--text); }
+  .btn-ghost:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  kbd {
+    display: inline-block;
+    padding: 2px 6px;
+    background: var(--bg);
+    border: 1px solid var(--border-bright);
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    line-height: 1;
+  }
+
+  /* Stage card */
+  .stage {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 20px;
+    transition: all 0.4s;
+    opacity: 0.45;
+  }
+  .stage.unlocked { opacity: 1; }
+  .stage.active {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent), 0 8px 32px rgba(99,102,241,0.2);
+  }
+  .stage.done .stage-num {
+    background: var(--success);
+    color: white;
+    border-color: var(--success);
+  }
+  .stage.done .stage-num::after { content: '✓'; font-size: 16px; }
+  .stage.done .stage-num span { display: none; }
+
+  .stage-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  .stage-num {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-bright);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 600;
+    color: var(--text-dim);
+    transition: all 0.3s;
+    flex-shrink: 0;
+  }
+  .stage.active .stage-num {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+    box-shadow: 0 0 16px rgba(99,102,241,0.6);
+  }
+  .stage-title {
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .stage-desc {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-left: auto;
+    font-family: var(--mono);
+  }
+
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+  @media (max-width: 800px) { .row { grid-template-columns: 1fr; } }
+
+  .label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-faint);
+    margin-bottom: 10px;
+    font-weight: 500;
+  }
+
+  /* Explanation block — visible on each stage */
+  .explain {
+    background: var(--bg-elevated);
+    border-left: 3px solid var(--accent);
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text-dim);
+    margin-bottom: 18px;
+  }
+  .explain strong { color: var(--text); }
+
+  /* Sudoku grid */
+  .sudoku-wrap { display: flex; justify-content: center; }
+  .sudoku16 {
+    display: grid;
+    grid-template-columns: repeat(16, 1fr);
+    width: 100%;
+    max-width: 360px;
+    aspect-ratio: 1;
+    background: var(--border-bright);
+    padding: 2px;
+    border-radius: 6px;
+    gap: 0;
+  }
+  .cell16 {
+    background: var(--bg-elevated);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text);
+    aspect-ratio: 1;
+    transition: all 0.4s;
+    font-family: var(--mono);
+  }
+  .cell16.box-r { border-right: 1.5px solid var(--border-bright); }
+  .cell16.box-b { border-bottom: 1.5px solid var(--border-bright); }
+  .cell16.flow {
+    background: var(--warm);
+    color: #1a1300;
+    transform: scale(1.3);
+    z-index: 2;
+    position: relative;
+    box-shadow: 0 0 12px rgba(245,158,11,0.7);
+  }
+
+  /* Formula boxes */
+  .formula {
+    font-family: var(--mono);
+    font-size: 13px;
+    background: var(--bg-elevated);
+    color: var(--accent-glow);
+    padding: 10px 14px;
+    border-radius: 8px;
+    border-left: 3px solid var(--accent);
+    display: block;
+    line-height: 1.8;
+    margin-bottom: 12px;
+  }
+
+  /* Metric pills */
+  .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-top: 12px; }
+  .metric {
+    background: var(--bg-elevated);
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+  .metric .k {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-faint);
+    margin-bottom: 4px;
+    font-weight: 500;
+  }
+  .metric .v {
+    font-size: 17px;
+    font-weight: 600;
+    font-family: var(--mono);
+    color: var(--text);
+  }
+  .metric.warm .v { color: var(--warm-glow); }
+  .metric.success .v { color: var(--success); }
+
+  /* Live computation panel */
+  .compute-panel {
+    background: var(--bg-elevated);
+    padding: 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 2;
+  }
+  .compute-panel .line { display: flex; justify-content: space-between; gap: 12px; }
+  .compute-panel .key { color: var(--text-dim); }
+  .compute-panel .val { color: var(--text); font-weight: 500; }
+  .compute-panel .highlight { color: var(--warm-glow); font-weight: 600; }
+  .compute-panel .divider {
+    border-top: 1px solid var(--border);
+    margin: 8px 0;
+    padding-top: 6px;
+  }
+
+  .preview {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    background: var(--bg-elevated);
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    min-height: 70px;
+    line-height: 1.9;
+    word-spacing: 4px;
+  }
+
+  canvas { display: block; border-radius: 10px; }
+  .orbit-canvas {
+    width: 100%;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+  }
+
+  /* Byte stream */
+  .bytes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 10px;
+    background: var(--bg-elevated);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    min-height: 60px;
+  }
+  .byte {
+    width: 32px; height: 26px;
+    background: var(--bg);
+    color: var(--text-dim);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    border-radius: 4px;
+    transition: all 0.3s;
+    border: 1px solid var(--border);
+  }
+  .byte.active {
+    background: var(--warm);
+    color: #1a1300;
+    border-color: var(--warm-glow);
+    transform: scale(1.15);
+    box-shadow: 0 0 12px rgba(245,158,11,0.6);
+    font-weight: 600;
+  }
+
+  /* XOR visualization */
+  .xor-grid {
+    display: grid;
+    grid-template-columns: 1fr 28px 1fr 28px 1fr;
+    gap: 10px;
+    align-items: center;
+    padding: 16px;
+    background: var(--bg-elevated);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+  .xor-box {
+    background: var(--bg);
+    padding: 12px;
+    border-radius: 8px;
+    text-align: center;
+    border: 1px solid var(--border);
+  }
+  .xor-box.result {
+    border-color: var(--warm);
+    background: rgba(245,158,11,0.08);
+  }
+  .xor-box .x-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-faint);
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+  .xor-box .x-dec {
+    font-size: 22px;
+    font-weight: 600;
+    font-family: var(--mono);
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+  .xor-box.result .x-dec { color: var(--warm-glow); }
+  .xor-box .x-bin {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+  }
+  .xor-op {
+    text-align: center;
+    font-size: 20px;
+    color: var(--text-dim);
+    font-weight: 300;
+  }
+
+  /* Image preview row */
+  .imgs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 6px;
+  }
+  .img-cell {
+    text-align: center;
+    background: var(--bg-elevated);
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+  }
+  .img-cell canvas {
+    width: 100%;
+    max-width: 160px;
+    aspect-ratio: 1;
+    image-rendering: pixelated;
+    border-radius: 8px;
+    border: 1px solid var(--border-bright);
+    margin: 0 auto;
+  }
+  .img-cell .img-title {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 12px;
+    font-weight: 500;
+  }
+  .img-cell.cipher .img-title { color: var(--warm-glow); }
+  .img-cell.success .img-title { color: var(--success); }
+
+  /* Sub-step controls inside a stage */
+  .substep-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-top: 14px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .substep-info .dots {
+    display: flex;
+    gap: 4px;
+  }
+  .substep-info .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--border-bright);
+    transition: all 0.3s;
+  }
+  .substep-info .dot.done { background: var(--success); }
+  .substep-info .dot.current { background: var(--warm); box-shadow: 0 0 6px var(--warm); }
+
+  .footer-info {
+    margin-top: 32px;
+    padding: 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.7;
+  }
+  .footer-info strong { color: var(--text); }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>Sudoku Chaotic Key Encryption</h1>
+    <p>Step-by-step simulation — control each stage manually</p>
+  </header>
+
+  <!-- Sticky control bar -->
+  <div class="controls">
+    <div class="progress-wrap">
+      <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+      <div class="progress-text" id="progress-text">0 / 5</div>
+    </div>
+    <div class="step-name" id="step-name">Click "Next step" to begin</div>
+    <button class="btn btn-ghost" onclick="resetSim()">↺ Reset</button>
+    <button class="btn btn-ghost" id="prev-btn" onclick="prevStep()" disabled>← Prev</button>
+    <button class="btn btn-primary" id="next-btn" onclick="nextStep()">Next step →</button>
+  </div>
+
+  <!-- STAGE 1 -->
+  <div class="stage unlocked" id="stage-1">
+    <div class="stage-head">
+      <div class="stage-num"><span>1</span></div>
+      <div class="stage-title">Sudoku encoding</div>
+      <div class="stage-desc">256 cells → normalized vector</div>
+    </div>
+    <div class="explain">
+      <strong>What's happening:</strong> Each cell of the 16×16 sudoku (values 1–16) is divided by 16 to produce a number in (0, 1]. This gives us a 256-element vector that acts as a high-entropy seed. Because every row, column, and 4×4 box contains each value exactly once, no two valid sudokus produce the same vector.
+    </div>
+    <div class="row">
+      <div>
+        <div class="label">16×16 sudoku grid</div>
+        <div class="sudoku-wrap"><div class="sudoku16" id="sudoku-grid"></div></div>
+      </div>
+      <div>
+        <div class="label">Normalization formula</div>
+        <span class="formula">encoded[i] = grid[i] / 16</span>
+        <div class="label" style="margin-top:18px">First 16 encoded values</div>
+        <div class="preview" id="encoded-preview">Press Next to encode...</div>
+        <div class="metrics">
+          <div class="metric"><div class="k">Total cells</div><div class="v">256</div></div>
+          <div class="metric"><div class="k">Value range</div><div class="v">0.06–1.0</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STAGE 2 -->
+  <div class="stage" id="stage-2">
+    <div class="stage-head">
+      <div class="stage-num"><span>2</span></div>
+      <div class="stage-title">Chaos parameter derivation</div>
+      <div class="stage-desc">vector → (x₀, μ)</div>
+    </div>
+    <div class="explain">
+      <strong>What's happening:</strong> Two running sums condense the 256-value vector into two parameters. <strong>x₀</strong> (initial condition) is the mean. <strong>μ</strong> (growth rate) uses a position-weighted sum so the <em>ordering</em> of cells matters — not just the values. μ is clamped just below 4.0 to stay in the strongly chaotic regime.
+    </div>
+    <div class="row">
+      <div>
+        <div class="label">Initial condition</div>
+        <span class="formula">x₀ = Σ encoded[i] / 256</span>
+        <div class="label" style="margin-top:14px">Growth rate</div>
+        <span class="formula">μ = 3.9 + Σ(i · encoded[i]) / 65536<br>μ = min(μ, 3.999)</span>
+      </div>
+      <div>
+        <div class="label">Live accumulator</div>
+        <div class="compute-panel">
+          <div class="line"><span class="key">Σ encoded</span><span class="val" id="sum-val">—</span></div>
+          <div class="line"><span class="key">Σ i·encoded</span><span class="val" id="wsum-val">—</span></div>
+          <div class="divider">
+            <div class="line"><span class="key">x₀</span><span class="highlight" id="x0-val">—</span></div>
+            <div class="line"><span class="key">μ</span><span class="highlight" id="mu-val">—</span></div>
+          </div>
+        </div>
+        <div class="metrics">
+          <div class="metric success"><div class="k">Chaotic regime</div><div class="v" id="chaos-check">—</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STAGE 3 -->
+  <div class="stage" id="stage-3">
+    <div class="stage-head">
+      <div class="stage-num"><span>3</span></div>
+      <div class="stage-title">Logistic map iteration</div>
+      <div class="stage-desc">x_(n+1) = μ · x_n · (1 − x_n)</div>
+    </div>
+    <div class="explain">
+      <strong>What's happening:</strong> Starting from x₀, the logistic map is iterated thousands of times. For μ ≥ 3.57 the orbit becomes chaotic — visiting (0, 1) in a deterministic but unpredictable pattern. The first 1000 iterations are discarded as warmup. The <strong>Lyapunov exponent</strong> being positive proves true chaos: nearby starting points diverge exponentially.
+    </div>
+    <div>
+      <div class="label">Chaotic orbit — 600 iterations after warmup</div>
+      <canvas id="orbit-canvas" class="orbit-canvas" width="1200" height="220"></canvas>
+      <div class="metrics">
+        <div class="metric"><div class="k">Iteration</div><div class="v" id="iter-val">0</div></div>
+        <div class="metric warm"><div class="k">Current xₙ</div><div class="v" id="xn-val">—</div></div>
+        <div class="metric"><div class="k">Lyapunov exp.</div><div class="v" id="lyap-val">—</div></div>
+        <div class="metric"><div class="k">Warmup discarded</div><div class="v">1000</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STAGE 4 -->
+  <div class="stage" id="stage-4">
+    <div class="stage-head">
+      <div class="stage-num"><span>4</span></div>
+      <div class="stage-title">Keystream extraction</div>
+      <div class="stage-desc">float orbit → uint8 bytes</div>
+    </div>
+    <div class="explain">
+      <strong>What's happening:</strong> Each chaotic value xₙ is multiplied by 10¹⁴ — this lifts the most-chaotic low-order digits into the integer range — then taken mod 256 to fit in a single byte. The result is a uniformly-distributed pseudo-random byte sequence. Mean should be ≈ 127.5 and standard deviation ≈ 73.9 (theoretical optimum).
+    </div>
+    <div class="row">
+      <div>
+        <div class="label">Quantization</div>
+        <span class="formula">key[i] = floor(xᵢ × 10¹⁴) mod 256</span>
+        <div style="margin-top:14px; font-size:13px; color:var(--text-dim); line-height:1.7">
+          Multiplying by 10¹⁴ exposes the low-order chaotic digits. The mod 256 maps each result to a byte. This makes the keystream extremely sensitive — even a 10⁻¹⁵ change in xₙ can flip a key byte.
+        </div>
+      </div>
+      <div>
+        <div class="label">Generated keystream (first 32 bytes, hex)</div>
+        <div class="bytes" id="key-bytes"></div>
+        <div class="metrics">
+          <div class="metric"><div class="k">Mean</div><div class="v" id="kmean-val">—</div></div>
+          <div class="metric"><div class="k">Std dev</div><div class="v" id="kstd-val">—</div></div>
+          <div class="metric"><div class="k">Total bytes</div><div class="v" id="kbytes-val">—</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STAGE 5 -->
+  <div class="stage" id="stage-5">
+    <div class="stage-head">
+      <div class="stage-num"><span>5</span></div>
+      <div class="stage-title">XOR pixel encryption</div>
+      <div class="stage-desc">pixel ⊕ key → cipher</div>
+    </div>
+    <div class="explain">
+      <strong>What's happening:</strong> Each pixel byte is XOR-ed with one byte of the keystream. XOR is <em>involutive</em> — applying it twice with the same key gives back the original. Low PSNR (≈8 dB) means encryption is strong. The cipher's Shannon entropy approaches 8.0 bits/byte, the theoretical maximum, meaning the cipher looks like uniform random noise.
+    </div>
+    <div>
+      <div class="label">Single-byte XOR example (the very first pixel byte)</div>
+      <div class="xor-grid">
+        <div class="xor-box">
+          <div class="x-label">Pixel</div>
+          <div class="x-dec" id="xor-p-dec">—</div>
+          <div class="x-bin" id="xor-p-bin">—</div>
+        </div>
+        <div class="xor-op">⊕</div>
+        <div class="xor-box">
+          <div class="x-label">Key</div>
+          <div class="x-dec" id="xor-k-dec">—</div>
+          <div class="x-bin" id="xor-k-bin">—</div>
+        </div>
+        <div class="xor-op">=</div>
+        <div class="xor-box result">
+          <div class="x-label">Cipher</div>
+          <div class="x-dec" id="xor-c-dec">—</div>
+          <div class="x-bin" id="xor-c-bin">—</div>
+        </div>
+      </div>
+
+      <div class="substep-info">
+        <span>Sub-steps:</span>
+        <div class="dots" id="s5-dots">
+          <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        </div>
+        <span id="s5-substep">Press Next to begin XOR demo</span>
+      </div>
+
+      <div class="label" style="margin-top:18px">Full image transformation</div>
+      <div class="imgs">
+        <div class="img-cell">
+          <canvas id="orig-canvas" width="64" height="64"></canvas>
+          <div class="img-title">Original</div>
+        </div>
+        <div class="img-cell cipher">
+          <canvas id="enc-canvas" width="64" height="64"></canvas>
+          <div class="img-title">Encrypted</div>
+        </div>
+        <div class="img-cell success">
+          <canvas id="dec-canvas" width="64" height="64"></canvas>
+          <div class="img-title">Decrypted</div>
+        </div>
+      </div>
+
+      <div class="metrics">
+        <div class="metric"><div class="k">PSNR (encrypted)</div><div class="v" id="psnr-enc">—</div></div>
+        <div class="metric success"><div class="k">PSNR (decrypted)</div><div class="v" id="psnr-dec">—</div></div>
+        <div class="metric"><div class="k">Pixel correlation</div><div class="v" id="corr-val">—</div></div>
+        <div class="metric"><div class="k">Cipher entropy</div><div class="v" id="entropy-val">—</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-info">
+    <strong>Keyboard shortcuts:</strong> Press <kbd>→</kbd> or <kbd>Space</kbd> for next step, <kbd>←</kbd> for previous, <kbd>R</kbd> to reset.
+    Each stage shows its formula, runs its computation visually, and displays the resulting metrics. Stages unlock in order — you control the pace.
+  </div>
+</div>
+
+<script>
+const GRID_SIZE = 16, TOTAL_CELLS = 256, BOX_SIZE = 4;
+let sudokuGrid = null, encoded = null, x0 = 0, mu = 0;
+let orbit = null, keystream = null;
+let origImg = null, encImg = null, decImg = null;
+
+// Step counter. Each main stage has sub-steps.
+// Total flow: [stage 1 enter, stage 2 enter, stage 3 enter, stage 4 enter, stage 5 enter (XOR demo), stage 5 (encrypt), stage 5 (decrypt)]
+// Simpler model: 5 main stages, stage 5 has 3 substeps shown via dots
+let currentStep = 0;  // 0 = nothing done, 1..5 = completed stage, plus substeps
+let s5_sub = 0;       // 0..3 for stage 5 substeps (xor demo, encrypt, decrypt)
+const TOTAL_STEPS = 7; // 1, 2, 3, 4, 5a, 5b, 5c
+
+// ---------- Sudoku ----------
+function makeExampleSudoku() {
+  const grid = [];
+  for (let r = 0; r < GRID_SIZE; r++) {
+    const row = [];
+    for (let c = 0; c < GRID_SIZE; c++) {
+      row.push(((r * BOX_SIZE + Math.floor(r / BOX_SIZE) + c) % GRID_SIZE) + 1);
+    }
+    grid.push(row);
+  }
+  return grid;
+}
+function renderSudoku() {
+  const container = document.getElementById('sudoku-grid');
+  container.innerHTML = '';
+  for (let r = 0; r < GRID_SIZE; r++) {
+    for (let c = 0; c < GRID_SIZE; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell16';
+      cell.id = `c-${r}-${c}`;
+      if (c === 3 || c === 7 || c === 11) cell.classList.add('box-r');
+      if (r === 3 || r === 7 || r === 11) cell.classList.add('box-b');
+      cell.textContent = sudokuGrid[r][c];
+      container.appendChild(cell);
+    }
+  }
+}
+function flowCell(r, c) {
+  const cell = document.getElementById(`c-${r}-${c}`);
+  if (cell) {
+    cell.classList.add('flow');
+    setTimeout(() => cell.classList.remove('flow'), 500);
+  }
+}
+
+// ---------- Helpers ----------
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function setStageActive(num) {
+  document.querySelectorAll('.stage').forEach(s => s.classList.remove('active'));
+  if (num >= 1 && num <= 5) {
+    const el = document.getElementById(`stage-${num}`);
+    el.classList.add('active', 'unlocked');
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+function markStageDone(num) {
+  const el = document.getElementById(`stage-${num}`);
+  el.classList.add('done');
+  el.classList.remove('active');
+  // Unlock next
+  if (num < 5) document.getElementById(`stage-${num+1}`).classList.add('unlocked');
+}
+function updateControls() {
+  const progress = Math.min(currentStep, TOTAL_STEPS);
+  document.getElementById('progress-fill').style.width = `${(progress / TOTAL_STEPS) * 100}%`;
+  document.getElementById('progress-text').textContent = `${progress} / ${TOTAL_STEPS}`;
+  document.getElementById('prev-btn').disabled = currentStep === 0;
+  document.getElementById('next-btn').disabled = currentStep >= TOTAL_STEPS;
+}
+function setStepName(text) {
+  document.getElementById('step-name').textContent = text;
+}
+
+// ---------- Stage implementations ----------
+async function runStage1() {
+  setStageActive(1);
+  setStepName('Stage 1 — Encoding sudoku');
+  encoded = new Array(TOTAL_CELLS);
+  const preview = document.getElementById('encoded-preview');
+  let displayVals = [];
+  for (let i = 0; i < TOTAL_CELLS; i++) {
+    const r = Math.floor(i / GRID_SIZE), c = i % GRID_SIZE;
+    encoded[i] = sudokuGrid[r][c] / GRID_SIZE;
+    if (i < 32) {
+      flowCell(r, c);
+      if (i < 16) {
+        displayVals.push(encoded[i].toFixed(4));
+        preview.textContent = displayVals.join('  ') + '  ...';
+      }
+      await sleep(30);
+    }
+  }
+  markStageDone(1);
+}
+
+async function runStage2() {
+  setStageActive(2);
+  setStepName('Stage 2 — Deriving chaos parameters');
+  let sum = 0, wsum = 0;
+  for (let i = 0; i < TOTAL_CELLS; i++) {
+    sum += encoded[i];
+    wsum += (i + 1) * encoded[i];
+    if (i % 16 === 0 || i === TOTAL_CELLS - 1) {
+      document.getElementById('sum-val').textContent = sum.toFixed(4);
+      document.getElementById('wsum-val').textContent = wsum.toFixed(2);
+      await sleep(40);
+    }
+  }
+  x0 = sum / TOTAL_CELLS;
+  if (x0 < 1e-6 || x0 > 1 - 1e-6) x0 = 0.5;
+  mu = Math.min(3.9 + (wsum / (TOTAL_CELLS * TOTAL_CELLS)), 3.999);
+  document.getElementById('x0-val').textContent = x0.toFixed(8);
+  document.getElementById('mu-val').textContent = mu.toFixed(8);
+  document.getElementById('chaos-check').textContent = (mu >= 3.57 && mu <= 4.0) ? 'Yes' : 'No';
+  markStageDone(2);
+}
+
+async function runStage3() {
+  setStageActive(3);
+  setStepName('Stage 3 — Iterating logistic map');
+  const N = 1600;
+  orbit = new Array(N);
+  orbit[0] = x0;
+  for (let i = 1; i < N; i++) orbit[i] = mu * orbit[i-1] * (1 - orbit[i-1]);
+
+  let lsum = 0, x = x0;
+  for (let i = 0; i < 1000; i++) {
+    lsum += Math.log(Math.abs(mu * (1 - 2*x)));
+    x = mu * x * (1 - x);
+  }
+  document.getElementById('lyap-val').textContent = (lsum/1000).toFixed(4);
+
+  const canvas = document.getElementById('orbit-canvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const visible = orbit.slice(1000);
+  const frames = 60;
+  for (let f = 1; f <= frames; f++) {
+    const upTo = Math.floor((f / frames) * visible.length);
+    ctx.clearRect(0, 0, W, H);
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    for (let g = 1; g < 4; g++) {
+      ctx.beginPath();
+      ctx.moveTo(0, H * g / 4);
+      ctx.lineTo(W, H * g / 4);
+      ctx.stroke();
+    }
+    const grad = ctx.createLinearGradient(0, 0, W, 0);
+    grad.addColorStop(0, '#6366f1');
+    grad.addColorStop(0.5, '#a855f7');
+    grad.addColorStop(1, '#f59e0b');
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let i = 0; i < upTo; i++) {
+      const px = (i / visible.length) * W;
+      const py = H - visible[i] * H * 0.9 - H * 0.05;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+    ctx.fillStyle = '#fbbf24';
+    for (let i = 0; i < upTo; i += 30) {
+      const px = (i / visible.length) * W;
+      const py = H - visible[i] * H * 0.9 - H * 0.05;
+      ctx.beginPath();
+      ctx.arc(px, py, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    document.getElementById('iter-val').textContent = (1000 + upTo).toLocaleString();
+    document.getElementById('xn-val').textContent = visible[Math.min(upTo, visible.length-1)].toFixed(6);
+    await sleep(15);
+  }
+  markStageDone(3);
+}
+
+async function runStage4() {
+  setStageActive(4);
+  setStepName('Stage 4 — Extracting keystream');
+  const W = 64, H = 64;
+  const totalBytes = W * H * 3;
+  const fullOrbit = new Array(totalBytes + 1000);
+  fullOrbit[0] = x0;
+  for (let i = 1; i < fullOrbit.length; i++) fullOrbit[i] = mu * fullOrbit[i-1] * (1 - fullOrbit[i-1]);
+  keystream = new Uint8Array(totalBytes);
+  for (let i = 0; i < totalBytes; i++) {
+    keystream[i] = Math.floor(fullOrbit[i + 1000] * 1e14) % 256;
+  }
+  const container = document.getElementById('key-bytes');
+  container.innerHTML = '';
+  for (let i = 0; i < 32; i++) {
+    const div = document.createElement('div');
+    div.className = 'byte active';
+    div.textContent = keystream[i].toString(16).padStart(2, '0').toUpperCase();
+    container.appendChild(div);
+    await sleep(30);
+    div.classList.remove('active');
+  }
+  let sum = 0;
+  for (let i = 0; i < keystream.length; i++) sum += keystream[i];
+  const mean = sum / keystream.length;
+  let sq = 0;
+  for (let i = 0; i < keystream.length; i++) sq += (keystream[i] - mean) ** 2;
+  document.getElementById('kmean-val').textContent = mean.toFixed(2);
+  document.getElementById('kstd-val').textContent = Math.sqrt(sq / keystream.length).toFixed(2);
+  document.getElementById('kbytes-val').textContent = keystream.length.toLocaleString();
+  markStageDone(4);
+}
+
+// Stage 5 has 3 substeps — controlled separately
+function makeTestImage(W, H) {
+  const data = new Uint8Array(W * H * 4);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = (y * W + x) * 4;
+    data[i]   = Math.floor(x / W * 220) + 35;
+    data[i+1] = Math.floor(y / H * 200) + 55;
+    data[i+2] = 150;
+    data[i+3] = 255;
+    const dist = Math.sqrt((x - W/2) ** 2 + (y - H/2) ** 2);
+    if (dist < 14) {
+      data[i] = 255; data[i+1] = 215; data[i+2] = 0;
+    } else if (dist < 18) {
+      data[i] = 200; data[i+1] = 50; data[i+2] = 50;
+    }
+    if (y < 16 && x < 24 && Math.floor(y / 3) % 2 === 0) {
+      data[i] = 255; data[i+1] = 255; data[i+2] = 255;
+    }
+  }
+  return data;
+}
+function drawCanvas(canvasId, W, H, rgba) {
+  const c = document.getElementById(canvasId);
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  const id = ctx.createImageData(W, H);
+  id.data.set(rgba);
+  ctx.putImageData(id, 0, 0);
+}
+function updateS5Dots(activeIdx) {
+  const dots = document.querySelectorAll('#s5-dots .dot');
+  dots.forEach((d, i) => {
+    d.classList.remove('done', 'current');
+    if (i < activeIdx) d.classList.add('done');
+    else if (i === activeIdx) d.classList.add('current');
+  });
+}
+
+async function runStage5a() {
+  setStageActive(5);
+  setStepName('Stage 5a — Single-byte XOR demo');
+  updateS5Dots(0);
+  document.getElementById('s5-substep').textContent = 'Showing XOR of pixel byte ⊕ key byte';
+
+  const W = 64, H = 64;
+  origImg = makeTestImage(W, H);
+  drawCanvas('orig-canvas', W, H, origImg);
+  await sleep(200);
+
+  const p = origImg[0], k = keystream[0];
+  const c = p ^ k;
+  // Animate the binary one bit at a time
+  const pBin = p.toString(2).padStart(8, '0');
+  const kBin = k.toString(2).padStart(8, '0');
+  const cBin = c.toString(2).padStart(8, '0');
+  document.getElementById('xor-p-dec').textContent = p;
+  document.getElementById('xor-k-dec').textContent = k;
+  document.getElementById('xor-p-bin').textContent = pBin;
+  document.getElementById('xor-k-bin').textContent = kBin;
+
+  // Build cipher bit by bit
+  let buildBin = '';
+  for (let i = 0; i < 8; i++) {
+    buildBin += cBin[i];
+    document.getElementById('xor-c-bin').textContent = buildBin.padEnd(8, '_');
+    await sleep(120);
+  }
+  document.getElementById('xor-c-dec').textContent = c;
+  updateS5Dots(1);
+  document.getElementById('s5-substep').textContent = 'XOR demo complete. Press Next to encrypt full image.';
+}
+
+async function runStage5b() {
+  setStepName('Stage 5b — Encrypting full image');
+  document.getElementById('s5-substep').textContent = 'Applying XOR over all pixels...';
+  const W = 64, H = 64;
+  encImg = new Uint8Array(origImg.length);
+  let ki = 0;
+  // Animate by row reveal
+  const canvas = document.getElementById('enc-canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  const id = ctx.createImageData(W, H);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      for (let ch = 0; ch < 3; ch++) {
+        const idx = (y * W + x) * 4 + ch;
+        encImg[idx] = origImg[idx] ^ keystream[ki++ % keystream.length];
+      }
+      encImg[(y * W + x) * 4 + 3] = 255;
+    }
+    // Update canvas every few rows for animation
+    if (y % 4 === 0 || y === H - 1) {
+      id.data.set(encImg);
+      ctx.putImageData(id, 0, 0);
+      await sleep(20);
+    }
+  }
+  updateS5Dots(2);
+  document.getElementById('s5-substep').textContent = 'Encryption complete. Press Next to decrypt.';
+}
+
+async function runStage5c() {
+  setStepName('Stage 5c — Decrypting with same key');
+  document.getElementById('s5-substep').textContent = 'XOR is self-inverse — same key recovers original...';
+  const W = 64, H = 64;
+  decImg = new Uint8Array(encImg.length);
+  let ki = 0;
+  const canvas = document.getElementById('dec-canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  const id = ctx.createImageData(W, H);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      for (let ch = 0; ch < 3; ch++) {
+        const idx = (y * W + x) * 4 + ch;
+        decImg[idx] = encImg[idx] ^ keystream[ki++ % keystream.length];
+      }
+      decImg[(y * W + x) * 4 + 3] = 255;
+    }
+    if (y % 4 === 0 || y === H - 1) {
+      id.data.set(decImg);
+      ctx.putImageData(id, 0, 0);
+      await sleep(20);
+    }
+  }
+
+  // Compute metrics
+  let mse = 0, count = 0;
+  for (let i = 0; i < origImg.length; i++) {
+    if (i % 4 === 3) continue;
+    mse += (origImg[i] - encImg[i]) ** 2;
+    count++;
+  }
+  mse /= count;
+  document.getElementById('psnr-enc').textContent = mse === 0 ? '∞' : (10 * Math.log10(255*255 / mse)).toFixed(2) + ' dB';
+  document.getElementById('psnr-dec').textContent = '∞';
+
+  const N = 1500;
+  let mx = 0, my = 0;
+  for (let i = 0; i < N; i++) { mx += origImg[i*4]; my += encImg[i*4]; }
+  mx /= N; my /= N;
+  let num = 0, d1 = 0, d2 = 0;
+  for (let i = 0; i < N; i++) {
+    const a = origImg[i*4] - mx, b = encImg[i*4] - my;
+    num += a * b; d1 += a * a; d2 += b * b;
+  }
+  document.getElementById('corr-val').textContent = (num / Math.sqrt(d1 * d2 + 1e-10)).toFixed(4);
+
+  const hist = new Array(256).fill(0);
+  for (let i = 0; i < encImg.length; i++) {
+    if (i % 4 === 3) continue;
+    hist[encImg[i]]++;
+  }
+  let entropy = 0;
+  for (let i = 0; i < 256; i++) {
+    if (hist[i] > 0) {
+      const p = hist[i] / count;
+      entropy -= p * Math.log2(p);
+    }
+  }
+  document.getElementById('entropy-val').textContent = entropy.toFixed(3);
+
+  updateS5Dots(3);
+  document.getElementById('s5-substep').textContent = 'All stages complete ✓';
+  markStageDone(5);
+  setStepName('Simulation complete ✓');
+}
+
+// ---------- Step controller ----------
+const STEPS = [
+  { run: runStage1, label: 'Stage 1' },
+  { run: runStage2, label: 'Stage 2' },
+  { run: runStage3, label: 'Stage 3' },
+  { run: runStage4, label: 'Stage 4' },
+  { run: runStage5a, label: 'Stage 5a' },
+  { run: runStage5b, label: 'Stage 5b' },
+  { run: runStage5c, label: 'Stage 5c' },
+];
+
+let isAnimating = false;
+async function nextStep() {
+  if (isAnimating || currentStep >= TOTAL_STEPS) return;
+  isAnimating = true;
+  document.getElementById('next-btn').disabled = true;
+  document.getElementById('prev-btn').disabled = true;
+  await STEPS[currentStep].run();
+  currentStep++;
+  isAnimating = false;
+  updateControls();
+}
+
+function prevStep() {
+  if (isAnimating || currentStep === 0) return;
+  currentStep--;
+  // Just rewind — clear stages back to that point
+  // Simpler approach: full reset, then replay quickly up to currentStep
+  // Even simpler for a viva flow: just reset everything to start fresh
+  // Here we do a "go back" by clearing the last stage's UI
+  resetUI();
+  // Re-run instantly up to currentStep
+  (async () => {
+    isAnimating = true;
+    document.getElementById('next-btn').disabled = true;
+    document.getElementById('prev-btn').disabled = true;
+    for (let i = 0; i < currentStep; i++) {
+      await STEPS[i].run();
+    }
+    isAnimating = false;
+    updateControls();
+  })();
+}
+
+function resetUI() {
+  document.querySelectorAll('.stage').forEach((s, i) => {
+    s.classList.remove('active', 'done');
+    if (i === 0) s.classList.add('unlocked');
+    else s.classList.remove('unlocked');
+  });
+  ['encoded-preview','sum-val','wsum-val','x0-val','mu-val','chaos-check',
+   'iter-val','xn-val','lyap-val','kmean-val','kstd-val','kbytes-val',
+   'xor-p-dec','xor-p-bin','xor-k-dec','xor-k-bin','xor-c-dec','xor-c-bin',
+   'psnr-enc','psnr-dec','corr-val','entropy-val'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (id === 'encoded-preview') el.textContent = 'Press Next to encode...';
+    else if (id === 'iter-val') el.textContent = '0';
+    else el.textContent = '—';
+  });
+  document.getElementById('key-bytes').innerHTML = '';
+  const oc = document.getElementById('orbit-canvas');
+  oc.getContext('2d').clearRect(0,0,oc.width,oc.height);
+  ['orig-canvas','enc-canvas','dec-canvas'].forEach(id => {
+    const c = document.getElementById(id);
+    c.getContext('2d').clearRect(0,0,c.width,c.height);
+  });
+  updateS5Dots(-1);
+  document.getElementById('s5-substep').textContent = 'Press Next to begin XOR demo';
+}
+
+function resetSim() {
+  if (isAnimating) return;
+  currentStep = 0;
+  resetUI();
+  setStepName('Click "Next step" to begin');
+  updateControls();
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === 'ArrowRight' || e.key === ' ') {
+    e.preventDefault();
+    nextStep();
+  } else if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    prevStep();
+  } else if (e.key === 'r' || e.key === 'R') {
+    resetSim();
+  }
+});
+
+// Init
+sudokuGrid = makeExampleSudoku();
+renderSudoku();
+updateControls();
+</script>
+
+</body>
+</html>
